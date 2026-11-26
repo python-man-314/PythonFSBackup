@@ -1,1 +1,2 @@
-python3 backup.py
+cd "$(dirname "$0")" || exit
+python3 ./backup.py

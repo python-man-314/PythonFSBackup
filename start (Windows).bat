@@ -1,1 +1,3 @@
-python3 backup.py
+@echo off
+cd /d "%~dp0"
+python backup.py
