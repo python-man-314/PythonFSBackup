@@ -129,17 +129,36 @@ try:
         folder_name = "drive"
     zip_base_path = Path(selected_drive) / f"{folder_name}_backup_{timestamp}"
     print(colorama.Fore.GREEN + f"Making backup of {selected_folder}. This may take a few moments.")
-    if selected_folder.is_dir():
-        final_zip = shutil.make_archive(str(zip_base_path), "zip", str(selected_folder))
-    else:
-        final_zip = shutil.make_archive(
-            str(zip_base_path),
-            "zip",
-            str(selected_folder.parent),
-            selected_folder.name
-        )
-    print(colorama.Fore.GREEN + f"Backed up to {selected_drive}.")
-    sys.exit()
+    try:
+        if selected_folder.is_dir():
+            final_zip = shutil.make_archive(str(zip_base_path), "zip", str(selected_folder))
+        else:
+            final_zip = shutil.make_archive(
+                str(zip_base_path),
+                "zip",
+                str(selected_folder.parent),
+                selected_folder.name
+            )
+        print(colorama.Fore.GREEN + f"Backed up to {selected_drive}.")
+        sys.exit()
+    except OSError as e:
+        if e.errno in (30, 19):
+            print(colorama.Fore.RED + f"The filesystem {selected_drive} is read-only. Try these:\n"
+                                      "- Remount the system with write access\n"
+                                      "- Format the drive to a filesystem the system can read\n"
+                                      "If you can't do any of the above, choose a different drive to back up and try again.")
+        elif e.errno == 28:
+            print(colorama.Fore.RED + f"The drive {selected_drive} is full. Try these:\n"
+                                      "- Free up space on the selected drive.\n"
+                                    "If you can't do any of the above, choose a different drive to back up and try again.")
+        elif e.errno == 13:
+            print(colorama.Fore.RED + f"Python does not have permission to write to or access drive {selected_drive} or folder {selected_folder}. Try these:\n"
+                                      "- Run as administrator (Windows) or with sudo access (Linux/Mac).\n"
+                                      f"- Give Python permission to write to or access {selected_drive} or {selected_folder}.\n"
+                                      f"- Check and modify the permissions of the folder or drive.\n"
+                                      f"If you can't do any of the above, choose a different drive or folder to back up and try again.")
+        else:
+            raise
 finally:
     if sys.stdin.closed:
         sys.stdin = open("CON") if sys.platform == "win32" else open("/dev/tty")
