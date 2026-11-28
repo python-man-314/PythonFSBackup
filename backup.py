@@ -97,7 +97,23 @@ try:
     elif folder == "Custom":
         if sys.stdin.closed:
             sys.stdin = open("CON") if sys.platform == "win32" else open("/dev/tty")
-        raw_path = input("Please enter the path of the file or folder. (Tip: Drag it here) ").strip().strip("'").strip('"')
+        raw_path = (
+            input("Please enter the path of the file or folder. (Tip: Drag it here) ")
+            .strip()
+            .strip("\"'")
+            .replace("\\ ", " ")
+            .replace("\\(", "(")
+            .replace("\\)", ")")
+            .replace("\\!", "!")
+            .replace("\\@", "@")
+            .replace("\\#", "#")
+            .replace("\\$", "$")
+            .replace("\\%", "%")
+            .replace("\\^", "^")
+            .replace("\\&", "&")
+            .replace("\\*", "*")
+        )
+
         selected_folder = Path(raw_path).expanduser()
         if not selected_folder.exists():
             print(colorama.Fore.RED + "The path you have typed does not exist. Check the path, and try again.")
