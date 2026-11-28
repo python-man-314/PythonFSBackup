@@ -6,7 +6,22 @@ try:
     import sys
     import subprocess
     import getpass
-    
+    import zipfile
+
+    SKIP_FOLDERS = {Path("/Volumes"), Path("/dev"), Path("/tmp"), Path("/private/tmp"), Path("/cores")}
+
+    def zip_folder(current_folder, zip_file):
+        for item in current_folder.iterdir():
+            if item.is_symlink() or item.resolve() == Path(selected_drive).resolve() or item in SKIP_FOLDERS:
+                continue
+            try:
+                if item.is_dir():
+                    zip_folder(item, zip_file)
+                elif item.is_file():
+                    zip_file.write(item, arcname=item.relative_to(selected_folder))
+            except PermissionError:
+                continue
+
     username = getpass.getuser()
 
     deps = ["pick", "colorama"]
@@ -72,9 +87,6 @@ try:
         sys.exit()
     elif folder == "System drive (C: or /)":
         selected_folder = Path(Path.home().anchor)
-        if Path(selected_drive).resolve() == selected_folder.resolve() or selected_folder.resolve() in Path(selected_drive).resolve().parents:
-            print(colorama.Fore.RED + "Cannot save a backup inside the same folder or drive being backed up!")
-            sys.exit()
     elif folder == "User folder":
         selected_folder = Path.home()
     elif folder == "Back up an external or network (Windows only) drive":
@@ -117,14 +129,20 @@ try:
         selected_folder = Path(raw_path).expanduser()
         if not selected_folder.exists():
             print(colorama.Fore.RED + "The path you have typed does not exist. Check the path, and try again.")
-            sys.exit()     
+            sys.exit()
     else:
         selected_folder = Path.home() / folder
         if not selected_folder.exists():
             print(colorama.Fore.RED + "That file or folder does not exist. Check the path and try again.")
             sys.exit()
-        print(colorama.Fore.GREEN + f"You have selected {selected_folder}")
-        
+    print(colorama.Fore.GREEN + f"You have selected {selected_folder}")
+    src = selected_folder.resolve()
+    dst = Path(selected_drive).resolve()
+
+    if (dst == src or src in dst.parents) and not (src == Path("/") and Path("/Volumes") in dst.parents):
+        print(colorama.Fore.RED + "Cannot save a backup inside the same folder or drive being backed up!")
+        sys.exit()
+
     confirmation = [
         colorama.Fore.GREEN + "Start backing up",
         "Cancel"
@@ -140,21 +158,19 @@ try:
         print(colorama.Fore.YELLOW + "Canceled operation")
         sys.exit()
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    folder_name = selected_folder.name
+    folder_name = selected_folder.stem if selected_folder.is_file() else selected_folder.name
     if not folder_name:
         folder_name = "drive"
-    zip_base_path = Path(selected_drive) / f"{folder_name}_backup_{timestamp}"
+
+    zip_file_path = Path(selected_drive) / f"{folder_name}_backup_{timestamp}.zip"
     print(colorama.Fore.GREEN + f"Making backup of {selected_folder}. This may take a few moments.")
+
     try:
-        if selected_folder.is_dir():
-            final_zip = shutil.make_archive(str(zip_base_path), "zip", str(selected_folder))
-        else:
-            final_zip = shutil.make_archive(
-                str(zip_base_path),
-                "zip",
-                str(selected_folder.parent),
-                selected_folder.name
-            )
+        with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+            if selected_folder.is_file():
+                zf.write(selected_folder, arcname=selected_folder.name)
+            else:
+                zip_folder(selected_folder, zf)
         print(colorama.Fore.GREEN + f"Backed up to {selected_drive}.")
         sys.exit()
     except OSError as e:
